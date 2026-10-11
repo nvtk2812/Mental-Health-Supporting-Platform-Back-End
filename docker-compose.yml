@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Cơ sở dữ liệu MySQL 8.0
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: mental_health_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 12345
+      MYSQL_DATABASE: mental_health_db
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: 12345
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Nếu bạn muốn tự động chạy file .sql khi khởi tạo lần đầu, hãy bỏ file .sql vào thư mục ./init-db
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - mental_health_network
+
+  # ---------------------------------------------------------------------------
+  # 2. Redis (Cache, Hàng đợi thông báo nhắc nhở & Realtime Chat)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: mental_health_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mental_health_network
+
+  # ---------------------------------------------------------------------------
+  # 3. phpMyAdmin (Giao diện Web xem dữ liệu thay cho Workbench)
+  # ---------------------------------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: mental_health_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    networks:
+      - mental_health_network
+  # ---------------------------------------------------------------------------
+  # 4. Backend Server API (Sẵn sàng khi bạn bắt đầu code backend)
+  # ---------------------------------------------------------------------------
+  # backend:
+  #   build:
+  #     context: ../backend
+  #     dockerfile: Dockerfile
+  #   container_name: mental_health_backend
+  #   restart: always
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     DB_HOST: mysql
+  #     DB_PORT: 3306
+  #     DB_NAME: mental_health_db
+  #     DB_USER: appuser
+  #     DB_PASSWORD: apppassword
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   depends_on:
+  #     - mysql
+  #     - redis
+  #   networks:
+  #     - mental_health_network
+
+  # -----------------------------------------------------------------------------
+  # Quản lý Volume (Giúp dữ liệu không bị mất khi tắt/bật Docker)
+  # -----------------------------------------------------------------------------
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# -----------------------------------------------------------------------------
+# Mạng nội bộ cho các Container giao tiếp với nhau
+# -----------------------------------------------------------------------------
+networks:
+  mental_health_network:
+    driver: bridge
